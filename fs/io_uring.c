@@ -2125,8 +2125,7 @@ static int io_setup_async_rw(struct io_kiocb *req, ssize_t io_size,
 			     struct iovec *iovec, struct iovec *fast_iov,
 			     struct iov_iter *iter)
 {
-	if (req->opcode == IORING_OP_READ_FIXED ||
-	    req->opcode == IORING_OP_WRITE_FIXED)
+	if (!io_op_defs[req->opcode].async_ctx)
 		return 0;
 	if (!req->io && io_alloc_async_ctx(req))
 		return -ENOMEM;
@@ -4702,6 +4701,13 @@ err_req:
 	if (*link) {
 		struct io_kiocb *head = *link;
 
+		/*
+		 * Taking sequential execution of a link, draining both sides
+		 * of the link also fullfils IOSQE_IO_DRAIN semantics for all
+		 * requests in the link. So, it drains the head and the
+		 * next after the link request. The last one is done via
+		 * drain_next flag to persist the effect across calls.
+		 */
 		if (sqe_flags & IOSQE_IO_DRAIN) {
 			head->flags |= REQ_F_IO_DRAIN;
 			ctx->drain_next = 1;
@@ -5745,7 +5751,7 @@ static int io_sq_offload_start(struct io_ring_ctx *ctx,
 {
 	struct io_wq_data data;
 	unsigned concurrency;
-	int ret;
+	int ret, id;
 
 	init_waitqueue_head(&ctx->sqo_wait);
 	mmgrab(current->mm);
@@ -5796,13 +5802,23 @@ static int io_sq_offload_start(struct io_ring_ctx *ctx,
 
 	/* Do QD, or 4 * CPUS, whatever is smallest */
 	concurrency = min(ctx->sq_entries, 4 * num_online_cpus());
-	ctx->io_wq = io_wq_create(concurrency, &data);
+
+	id = 0;
+	if (ctx->flags & IORING_SETUP_ATTACH_WQ) {
+		id = p->wq_id;
+		if (!id) {
+			ret = -EINVAL;
+			goto err;
+		}
+	}
+	ctx->io_wq = io_wq_create_id(concurrency, &data, id);
 	if (IS_ERR(ctx->io_wq)) {
 		ret = PTR_ERR(ctx->io_wq);
 		ctx->io_wq = NULL;
 		goto err;
 	}
 
+	p->wq_id = io_wq_id(ctx->io_wq);
 	return 0;
 err:
 	io_finish_async(ctx);
@@ -6626,7 +6642,11 @@ static long io_uring_setup(u32 entries, struct io_uring_params __user *params)
 
 	if (p.flags & ~(IORING_SETUP_IOPOLL | IORING_SETUP_SQPOLL |
 			IORING_SETUP_SQ_AFF | IORING_SETUP_CQSIZE |
-			IORING_SETUP_CLAMP))
+			IORING_SETUP_CLAMP | IORING_SETUP_ATTACH_WQ))
+		return -EINVAL;
+
+	/* id isn't valid without ATTACH_WQ being set */
+	if (!(p.flags & IORING_SETUP_ATTACH_WQ) && p.wq_id)
 		return -EINVAL;
 
 	ret = io_uring_create(entries, &p);
