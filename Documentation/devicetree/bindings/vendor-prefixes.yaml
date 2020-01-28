@@ -1088,6 +1088,8 @@ patternProperties:
     description: Xnano
   "^xunlong,.*":
     description: Shenzhen Xunlong Software CO.,Limited
+  "^xylon,.*":
+    description: Xylon
   "^yna,.*":
     description: YSH & ATIL
   "^yones-toptech,.*":
