@@ -667,7 +667,7 @@ static int kpc_i2c_probe(struct platform_device *pldev)
 	if (!res)
 		return -ENXIO;
 
-	priv->smba = (unsigned long)devm_ioremap_nocache(&pldev->dev,
+	priv->smba = (unsigned long)devm_ioremap(&pldev->dev,
 							 res->start,
 							 resource_size(res));
 	if (!priv->smba)
