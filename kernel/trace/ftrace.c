@@ -62,8 +62,6 @@
 	})
 
 /* hash bits for specific function selection */
-#define FTRACE_HASH_BITS 7
-#define FTRACE_FUNC_HASHSIZE (1 << FTRACE_HASH_BITS)
 #define FTRACE_HASH_DEFAULT_BITS 10
 #define FTRACE_HASH_MAX_BITS 12
 
@@ -146,7 +144,7 @@ static void ftrace_pid_func(unsigned long ip, unsigned long parent_ip,
 {
 	struct trace_array *tr = op->private;
 
-	if (tr && this_cpu_read(tr->trace_buffer.data->ftrace_ignore_pid))
+	if (tr && this_cpu_read(tr->array_buffer.data->ftrace_ignore_pid))
 		return;
 
 	op->saved_func(ip, parent_ip, op, regs);
@@ -1102,9 +1100,6 @@ struct ftrace_page {
 
 #define ENTRY_SIZE sizeof(struct dyn_ftrace)
 #define ENTRIES_PER_PAGE (PAGE_SIZE / ENTRY_SIZE)
-
-/* estimate from running different kernels */
-#define NR_TO_INIT		10000
 
 static struct ftrace_page	*ftrace_pages_start;
 static struct ftrace_page	*ftrace_pages;
@@ -6922,7 +6917,7 @@ ftrace_filter_pid_sched_switch_probe(void *data, bool preempt,
 
 	pid_list = rcu_dereference_sched(tr->function_pids);
 
-	this_cpu_write(tr->trace_buffer.data->ftrace_ignore_pid,
+	this_cpu_write(tr->array_buffer.data->ftrace_ignore_pid,
 		       trace_ignore_this_task(pid_list, next));
 }
 
@@ -6976,7 +6971,7 @@ static void clear_ftrace_pids(struct trace_array *tr)
 	unregister_trace_sched_switch(ftrace_filter_pid_sched_switch_probe, tr);
 
 	for_each_possible_cpu(cpu)
-		per_cpu_ptr(tr->trace_buffer.data, cpu)->ftrace_ignore_pid = false;
+		per_cpu_ptr(tr->array_buffer.data, cpu)->ftrace_ignore_pid = false;
 
 	rcu_assign_pointer(tr->function_pids, NULL);
 
@@ -7100,7 +7095,7 @@ static void ignore_task_cpu(void *data)
 	pid_list = rcu_dereference_protected(tr->function_pids,
 					     mutex_is_locked(&ftrace_lock));
 
-	this_cpu_write(tr->trace_buffer.data->ftrace_ignore_pid,
+	this_cpu_write(tr->array_buffer.data->ftrace_ignore_pid,
 		       trace_ignore_this_task(pid_list, current));
 }
 
