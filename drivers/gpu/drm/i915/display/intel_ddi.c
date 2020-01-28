@@ -622,6 +622,34 @@ static const struct tgl_dkl_phy_ddi_buf_trans tgl_dkl_phy_hdmi_ddi_trans[] = {
 	{ 0x0, 0x0, 0xA },	/* 10		Full	-3 dB */
 };
 
+static const struct cnl_ddi_buf_trans tgl_combo_phy_ddi_translations_dp_hbr[] = {
+						/* NT mV Trans mV db    */
+	{ 0xA, 0x32, 0x3F, 0x00, 0x00 },	/* 350   350      0.0   */
+	{ 0xA, 0x4F, 0x37, 0x00, 0x08 },	/* 350   500      3.1   */
+	{ 0xC, 0x71, 0x2F, 0x00, 0x10 },	/* 350   700      6.0   */
+	{ 0x6, 0x7D, 0x2B, 0x00, 0x14 },	/* 350   900      8.2   */
+	{ 0xA, 0x4C, 0x3F, 0x00, 0x00 },	/* 500   500      0.0   */
+	{ 0xC, 0x73, 0x34, 0x00, 0x0B },	/* 500   700      2.9   */
+	{ 0x6, 0x7F, 0x2F, 0x00, 0x10 },	/* 500   900      5.1   */
+	{ 0xC, 0x6C, 0x3C, 0x00, 0x03 },	/* 650   700      0.6   */
+	{ 0x6, 0x7F, 0x35, 0x00, 0x0A },	/* 600   900      3.5   */
+	{ 0x6, 0x7F, 0x3F, 0x00, 0x00 },	/* 900   900      0.0   */
+};
+
+static const struct cnl_ddi_buf_trans tgl_combo_phy_ddi_translations_dp_hbr2[] = {
+						/* NT mV Trans mV db    */
+	{ 0xA, 0x35, 0x3F, 0x00, 0x00 },	/* 350   350      0.0   */
+	{ 0xA, 0x4F, 0x37, 0x00, 0x08 },	/* 350   500      3.1   */
+	{ 0xC, 0x63, 0x2F, 0x00, 0x10 },	/* 350   700      6.0   */
+	{ 0x6, 0x7F, 0x2B, 0x00, 0x14 },	/* 350   900      8.2   */
+	{ 0xA, 0x47, 0x3F, 0x00, 0x00 },	/* 500   500      0.0   */
+	{ 0xC, 0x63, 0x34, 0x00, 0x0B },	/* 500   700      2.9   */
+	{ 0x6, 0x7F, 0x2F, 0x00, 0x10 },	/* 500   900      5.1   */
+	{ 0xC, 0x61, 0x3C, 0x00, 0x03 },	/* 650   700      0.6   */
+	{ 0x6, 0x7B, 0x35, 0x00, 0x0A },	/* 600   900      3.5   */
+	{ 0x6, 0x7F, 0x3F, 0x00, 0x00 },	/* 900   900      0.0   */
+};
+
 static const struct ddi_buf_trans *
 bdw_get_buf_trans_edp(struct drm_i915_private *dev_priv, int *n_entries)
 {
@@ -901,15 +929,30 @@ icl_get_combo_buf_trans(struct drm_i915_private *dev_priv, int type, int rate,
 	return icl_combo_phy_ddi_translations_dp_hbr2;
 }
 
-static int intel_ddi_hdmi_level(struct drm_i915_private *dev_priv, enum port port)
+static const struct cnl_ddi_buf_trans *
+tgl_get_combo_buf_trans(struct drm_i915_private *dev_priv, int type, int rate,
+			int *n_entries)
 {
-	struct ddi_vbt_port_info *port_info = &dev_priv->vbt.ddi_port_info[port];
+	if (type != INTEL_OUTPUT_DP) {
+		return icl_get_combo_buf_trans(dev_priv, type, rate, n_entries);
+	} else if (rate > 270000) {
+		*n_entries = ARRAY_SIZE(tgl_combo_phy_ddi_translations_dp_hbr2);
+		return tgl_combo_phy_ddi_translations_dp_hbr2;
+	}
+
+	*n_entries = ARRAY_SIZE(tgl_combo_phy_ddi_translations_dp_hbr);
+	return tgl_combo_phy_ddi_translations_dp_hbr;
+}
+
+static int intel_ddi_hdmi_level(struct intel_encoder *encoder)
+{
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	int n_entries, level, default_entry;
-	enum phy phy = intel_port_to_phy(dev_priv, port);
+	enum phy phy = intel_port_to_phy(dev_priv, encoder->port);
 
 	if (INTEL_GEN(dev_priv) >= 12) {
 		if (intel_phy_is_combo(dev_priv, phy))
-			icl_get_combo_buf_trans(dev_priv, INTEL_OUTPUT_HDMI,
+			tgl_get_combo_buf_trans(dev_priv, INTEL_OUTPUT_HDMI,
 						0, &n_entries);
 		else
 			n_entries = ARRAY_SIZE(tgl_dkl_phy_hdmi_ddi_trans);
@@ -944,9 +987,8 @@ static int intel_ddi_hdmi_level(struct drm_i915_private *dev_priv, enum port por
 	if (WARN_ON_ONCE(n_entries == 0))
 		return 0;
 
-	if (port_info->hdmi_level_shift_set)
-		level = port_info->hdmi_level_shift;
-	else
+	level = intel_bios_hdmi_level_shift(encoder);
+	if (level < 0)
 		level = default_entry;
 
 	if (WARN_ON_ONCE(level >= n_entries))
@@ -980,8 +1022,7 @@ static void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder,
 							      &n_entries);
 
 	/* If we're boosting the current, set bit 31 of trans1 */
-	if (IS_GEN9_BC(dev_priv) &&
-	    dev_priv->vbt.ddi_port_info[port].dp_boost_level)
+	if (IS_GEN9_BC(dev_priv) && intel_bios_dp_boost_level(encoder))
 		iboost_bit = DDI_BUF_BALANCE_LEG_ENABLE;
 
 	for (i = 0; i < n_entries; i++) {
@@ -1014,8 +1055,7 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder,
 		level = n_entries - 1;
 
 	/* If we're boosting the current, set bit 31 of trans1 */
-	if (IS_GEN9_BC(dev_priv) &&
-	    dev_priv->vbt.ddi_port_info[port].hdmi_boost_level)
+	if (IS_GEN9_BC(dev_priv) && intel_bios_hdmi_boost_level(encoder))
 		iboost_bit = DDI_BUF_BALANCE_LEG_ENABLE;
 
 	/* Entry 9 is for HDMI: */
@@ -1654,7 +1694,8 @@ static void skl_ddi_clock_get(struct intel_encoder *encoder,
 			link_clock = 270000;
 			break;
 		default:
-			WARN(1, "Unsupported link rate\n");
+			drm_WARN(encoder->base.dev, 1,
+				 "Unsupported link rate\n");
 			break;
 		}
 		link_clock *= 2;
@@ -2006,7 +2047,7 @@ bool intel_ddi_connector_get_hw_state(struct intel_connector *intel_connector)
 {
 	struct drm_device *dev = intel_connector->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_encoder *encoder = intel_connector->encoder;
+	struct intel_encoder *encoder = intel_attached_encoder(intel_connector);
 	int type = intel_connector->base.connector_type;
 	enum port port = encoder->port;
 	enum transcoder cpu_transcoder;
@@ -2300,9 +2341,9 @@ static void skl_ddi_set_iboost(struct intel_encoder *encoder,
 	u8 iboost;
 
 	if (type == INTEL_OUTPUT_HDMI)
-		iboost = dev_priv->vbt.ddi_port_info[port].hdmi_boost_level;
+		iboost = intel_bios_hdmi_boost_level(encoder);
 	else
-		iboost = dev_priv->vbt.ddi_port_info[port].dp_boost_level;
+		iboost = intel_bios_dp_boost_level(encoder);
 
 	if (iboost == 0) {
 		const struct ddi_buf_trans *ddi_translations;
@@ -2372,7 +2413,7 @@ u8 intel_ddi_dp_voltage_max(struct intel_encoder *encoder)
 
 	if (INTEL_GEN(dev_priv) >= 12) {
 		if (intel_phy_is_combo(dev_priv, phy))
-			icl_get_combo_buf_trans(dev_priv, encoder->type,
+			tgl_get_combo_buf_trans(dev_priv, encoder->type,
 						intel_dp->link_rate, &n_entries);
 		else
 			n_entries = ARRAY_SIZE(tgl_dkl_phy_dp_ddi_trans);
@@ -2567,8 +2608,12 @@ static void icl_ddi_combo_vswing_program(struct drm_i915_private *dev_priv,
 	u32 n_entries, val;
 	int ln;
 
-	ddi_translations = icl_get_combo_buf_trans(dev_priv, type, rate,
-						   &n_entries);
+	if (INTEL_GEN(dev_priv) >= 12)
+		ddi_translations = tgl_get_combo_buf_trans(dev_priv, type, rate,
+							   &n_entries);
+	else
+		ddi_translations = icl_get_combo_buf_trans(dev_priv, type, rate,
+							   &n_entries);
 	if (!ddi_translations)
 		return;
 
@@ -3300,86 +3345,6 @@ static void intel_ddi_disable_fec_state(struct intel_encoder *encoder,
 	POSTING_READ(intel_dp->regs.dp_tp_ctl);
 }
 
-static void
-tgl_clear_psr2_transcoder_exitline(const struct intel_crtc_state *cstate)
-{
-	struct drm_i915_private *dev_priv = to_i915(cstate->uapi.crtc->dev);
-	u32 val;
-
-	if (!cstate->dc3co_exitline)
-		return;
-
-	val = I915_READ(EXITLINE(cstate->cpu_transcoder));
-	val &= ~(EXITLINE_MASK | EXITLINE_ENABLE);
-	I915_WRITE(EXITLINE(cstate->cpu_transcoder), val);
-}
-
-static void
-tgl_set_psr2_transcoder_exitline(const struct intel_crtc_state *cstate)
-{
-	u32 val, exit_scanlines;
-	struct drm_i915_private *dev_priv = to_i915(cstate->uapi.crtc->dev);
-
-	if (!cstate->dc3co_exitline)
-		return;
-
-	exit_scanlines = cstate->dc3co_exitline;
-	exit_scanlines <<= EXITLINE_SHIFT;
-	val = I915_READ(EXITLINE(cstate->cpu_transcoder));
-	val &= ~(EXITLINE_MASK | EXITLINE_ENABLE);
-	val |= exit_scanlines;
-	val |= EXITLINE_ENABLE;
-	I915_WRITE(EXITLINE(cstate->cpu_transcoder), val);
-}
-
-static void tgl_dc3co_exitline_compute_config(struct intel_encoder *encoder,
-					      struct intel_crtc_state *cstate)
-{
-	u32 exit_scanlines;
-	struct drm_i915_private *dev_priv = to_i915(cstate->uapi.crtc->dev);
-	u32 crtc_vdisplay = cstate->hw.adjusted_mode.crtc_vdisplay;
-
-	cstate->dc3co_exitline = 0;
-
-	if (!(dev_priv->csr.allowed_dc_mask & DC_STATE_EN_DC3CO))
-		return;
-
-	/* B.Specs:49196 DC3CO only works with pipeA and DDIA.*/
-	if (to_intel_crtc(cstate->uapi.crtc)->pipe != PIPE_A ||
-	    encoder->port != PORT_A)
-		return;
-
-	if (!cstate->has_psr2 || !cstate->hw.active)
-		return;
-
-	/*
-	 * DC3CO Exit time 200us B.Spec 49196
-	 * PSR2 transcoder Early Exit scanlines = ROUNDUP(200 / line time) + 1
-	 */
-	exit_scanlines =
-		intel_usecs_to_scanlines(&cstate->hw.adjusted_mode, 200) + 1;
-
-	if (WARN_ON(exit_scanlines > crtc_vdisplay))
-		return;
-
-	cstate->dc3co_exitline = crtc_vdisplay - exit_scanlines;
-	DRM_DEBUG_KMS("DC3CO exit scanlines %d\n", cstate->dc3co_exitline);
-}
-
-static void tgl_dc3co_exitline_get_config(struct intel_crtc_state *crtc_state)
-{
-	u32 val;
-	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
-
-	if (INTEL_GEN(dev_priv) < 12)
-		return;
-
-	val = I915_READ(EXITLINE(crtc_state->cpu_transcoder));
-
-	if (val & EXITLINE_ENABLE)
-		crtc_state->dc3co_exitline = val & EXITLINE_MASK;
-}
-
 static void tgl_ddi_pre_enable_dp(struct intel_encoder *encoder,
 				  const struct intel_crtc_state *crtc_state,
 				  const struct drm_connector_state *conn_state)
@@ -3392,7 +3357,6 @@ static void tgl_ddi_pre_enable_dp(struct intel_encoder *encoder,
 	int level = intel_ddi_dp_level(intel_dp);
 	enum transcoder transcoder = crtc_state->cpu_transcoder;
 
-	tgl_set_psr2_transcoder_exitline(crtc_state);
 	intel_dp_set_link_params(intel_dp, crtc_state->port_clock,
 				 crtc_state->lane_count, is_mst);
 
@@ -3618,8 +3582,7 @@ static void intel_ddi_pre_enable_hdmi(struct intel_encoder *encoder,
 	struct intel_digital_port *intel_dig_port = enc_to_dig_port(encoder);
 	struct intel_hdmi *intel_hdmi = &intel_dig_port->hdmi;
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = encoder->port;
-	int level = intel_ddi_hdmi_level(dev_priv, port);
+	int level = intel_ddi_hdmi_level(encoder);
 	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
 
 	intel_dp_dual_mode_set_tmds_output(intel_hdmi, true);
@@ -3779,7 +3742,6 @@ static void intel_ddi_post_disable_dp(struct intel_encoder *encoder,
 						  dig_port->ddi_io_power_domain);
 
 	intel_ddi_clk_disable(encoder);
-	tgl_clear_psr2_transcoder_exitline(old_crtc_state);
 }
 
 static void intel_ddi_post_disable_hdmi(struct intel_encoder *encoder,
@@ -4363,9 +4325,6 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		break;
 	}
 
-	if (encoder->type == INTEL_OUTPUT_EDP)
-		tgl_dc3co_exitline_get_config(pipe_config);
-
 	pipe_config->has_audio =
 		intel_ddi_is_audio_enabled(dev_priv, cpu_transcoder);
 
@@ -4447,7 +4406,6 @@ static int intel_ddi_compute_config(struct intel_encoder *encoder,
 		ret = intel_hdmi_compute_config(encoder, pipe_config, conn_state);
 	} else {
 		ret = intel_dp_compute_config(encoder, pipe_config, conn_state);
-		tgl_dc3co_exitline_compute_config(encoder, pipe_config);
 	}
 
 	if (ret)
@@ -4634,7 +4592,8 @@ intel_ddi_hotplug(struct intel_encoder *encoder,
 
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);
-	WARN(ret, "Acquiring modeset locks failed with %i\n", ret);
+	drm_WARN(encoder->base.dev, ret,
+		 "Acquiring modeset locks failed with %i\n", ret);
 
 	/*
 	 * Unpowered type-c dongles can take some time to boot and be
@@ -4737,15 +4696,14 @@ intel_ddi_max_lanes(struct intel_digital_port *intel_dport)
 
 void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 {
-	struct ddi_vbt_port_info *port_info =
-		&dev_priv->vbt.ddi_port_info[port];
 	struct intel_digital_port *intel_dig_port;
 	struct intel_encoder *encoder;
 	bool init_hdmi, init_dp, init_lspcon = false;
 	enum phy phy = intel_port_to_phy(dev_priv, port);
 
-	init_hdmi = port_info->supports_dvi || port_info->supports_hdmi;
-	init_dp = port_info->supports_dp;
+	init_hdmi = intel_bios_port_supports_dvi(dev_priv, port) ||
+		intel_bios_port_supports_hdmi(dev_priv, port);
+	init_dp = intel_bios_port_supports_dp(dev_priv, port);
 
 	if (intel_bios_is_lspcon_present(dev_priv, port)) {
 		/*
@@ -4806,8 +4764,9 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	intel_dig_port->aux_ch = intel_bios_port_aux_ch(dev_priv, port);
 
 	if (intel_phy_is_tc(dev_priv, phy)) {
-		bool is_legacy = !port_info->supports_typec_usb &&
-				 !port_info->supports_tbt;
+		bool is_legacy =
+			!intel_bios_port_supports_typec_usb(dev_priv, port) &&
+			!intel_bios_port_supports_tbt(dev_priv, port);
 
 		intel_tc_port_init(intel_dig_port, is_legacy);
 

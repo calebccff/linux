@@ -48,6 +48,7 @@
 #include "gt/uc/intel_guc_submission.h"
 
 #include "i915_debugfs.h"
+#include "i915_debugfs_params.h"
 #include "i915_irq.h"
 #include "i915_trace.h"
 #include "intel_csr.h"
@@ -1979,7 +1980,7 @@ static int i915_psr_sink_status_show(struct seq_file *m, void *data)
 	struct drm_connector *connector = m->private;
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	struct intel_dp *intel_dp =
-		enc_to_intel_dp(intel_attached_encoder(to_intel_connector(connector)));
+		intel_attached_dp(to_intel_connector(connector));
 	int ret;
 
 	if (!CAN_PSR(dev_priv)) {
@@ -2390,7 +2391,7 @@ static void intel_hdcp_info(struct seq_file *m,
 static void intel_dp_info(struct seq_file *m,
 			  struct intel_connector *intel_connector)
 {
-	struct intel_encoder *intel_encoder = intel_connector->encoder;
+	struct intel_encoder *intel_encoder = intel_attached_encoder(intel_connector);
 	struct intel_dp *intel_dp = enc_to_intel_dp(intel_encoder);
 
 	seq_printf(m, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
@@ -2409,7 +2410,7 @@ static void intel_dp_info(struct seq_file *m,
 static void intel_dp_mst_info(struct seq_file *m,
 			  struct intel_connector *intel_connector)
 {
-	struct intel_encoder *intel_encoder = intel_connector->encoder;
+	struct intel_encoder *intel_encoder = intel_attached_encoder(intel_connector);
 	struct intel_dp_mst_encoder *intel_mst =
 		enc_to_mst(intel_encoder);
 	struct intel_digital_port *intel_dig_port = intel_mst->primary;
@@ -2423,7 +2424,7 @@ static void intel_dp_mst_info(struct seq_file *m,
 static void intel_hdmi_info(struct seq_file *m,
 			    struct intel_connector *intel_connector)
 {
-	struct intel_encoder *intel_encoder = intel_connector->encoder;
+	struct intel_encoder *intel_encoder = intel_attached_encoder(intel_connector);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(intel_encoder);
 
 	seq_printf(m, "\taudio support: %s\n", yesno(intel_hdmi->has_audio));
@@ -4311,9 +4312,10 @@ int i915_debugfs_register(struct drm_i915_private *dev_priv)
 	struct drm_minor *minor = dev_priv->drm.primary;
 	int i;
 
+	i915_debugfs_params(dev_priv);
+
 	debugfs_create_file("i915_forcewake_user", S_IRUSR, minor->debugfs_root,
 			    to_i915(minor->dev), &i915_forcewake_fops);
-
 	for (i = 0; i < ARRAY_SIZE(i915_debugfs_files); i++) {
 		debugfs_create_file(i915_debugfs_files[i].name,
 				    S_IRUGO | S_IWUSR,
@@ -4355,7 +4357,7 @@ static int i915_dpcd_show(struct seq_file *m, void *data)
 {
 	struct drm_connector *connector = m->private;
 	struct intel_dp *intel_dp =
-		enc_to_intel_dp(intel_attached_encoder(to_intel_connector(connector)));
+		intel_attached_dp(to_intel_connector(connector));
 	u8 buf[16];
 	ssize_t err;
 	int i;
@@ -4390,7 +4392,7 @@ static int i915_panel_show(struct seq_file *m, void *data)
 {
 	struct drm_connector *connector = m->private;
 	struct intel_dp *intel_dp =
-		enc_to_intel_dp(intel_attached_encoder(to_intel_connector(connector)));
+		intel_attached_dp(to_intel_connector(connector));
 
 	if (connector->status != connector_status_connected)
 		return -ENODEV;
@@ -4468,7 +4470,7 @@ static int i915_dsc_fec_support_show(struct seq_file *m, void *data)
 		} else if (ret) {
 			break;
 		}
-		intel_dp = enc_to_intel_dp(intel_attached_encoder(to_intel_connector(connector)));
+		intel_dp = intel_attached_dp(to_intel_connector(connector));
 		crtc_state = to_intel_crtc_state(crtc->state);
 		seq_printf(m, "DSC_Enabled: %s\n",
 			   yesno(crtc_state->dsc.compression_enable));
