@@ -16,8 +16,13 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/rculist_nulls.h>
+#include <linux/idr.h>
 
 #include "io-wq.h"
+
+static LIST_HEAD(wq_list);
+static DEFINE_MUTEX(wq_lock);
+static DEFINE_IDR(wq_idr);
 
 #define WORKER_IDLE_TIMEOUT	(5 * HZ)
 
@@ -113,6 +118,10 @@ struct io_wq {
 	struct mm_struct *mm;
 	refcount_t refs;
 	struct completion done;
+
+	refcount_t use_refs;
+	struct list_head wq_list;
+	int id;
 };
 
 static bool io_worker_get(struct io_worker *worker)
@@ -456,6 +465,10 @@ next:
 		}
 		if (!worker->creds)
 			worker->creds = override_creds(wq->creds);
+		/*
+		 * OK to set IO_WQ_WORK_CANCEL even for uncancellable work,
+		 * the worker function will do the right thing.
+		 */
 		if (test_bit(IO_WQ_BIT_CANCEL, &wq->state))
 			work->flags |= IO_WQ_WORK_CANCEL;
 		if (worker->mm)
@@ -720,6 +733,7 @@ static bool io_wq_can_queue(struct io_wqe *wqe, struct io_wqe_acct *acct,
 static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work)
 {
 	struct io_wqe_acct *acct = io_work_get_acct(wqe, work);
+	int work_flags;
 	unsigned long flags;
 
 	/*
@@ -734,12 +748,14 @@ static void io_wqe_enqueue(struct io_wqe *wqe, struct io_wq_work *work)
 		return;
 	}
 
+	work_flags = work->flags;
 	spin_lock_irqsave(&wqe->lock, flags);
 	wq_list_add_tail(&work->list, &wqe->work_list);
 	wqe->flags &= ~IO_WQE_FLAG_STALLED;
 	spin_unlock_irqrestore(&wqe->lock, flags);
 
-	if (!atomic_read(&acct->nr_running))
+	if ((work_flags & IO_WQ_WORK_CONCURRENT) ||
+	    !atomic_read(&acct->nr_running))
 		io_wqe_wake_worker(wqe, acct);
 }
 
@@ -828,6 +844,7 @@ static bool io_work_cancel(struct io_worker *worker, void *cancel_data)
 	 */
 	spin_lock_irqsave(&worker->lock, flags);
 	if (worker->cur_work &&
+	    !(worker->cur_work->flags & IO_WQ_WORK_NO_CANCEL) &&
 	    data->cancel(worker->cur_work, data->caller_data)) {
 		send_sig(SIGINT, worker->task, 1);
 		ret = true;
@@ -902,7 +919,8 @@ static bool io_wq_worker_cancel(struct io_worker *worker, void *data)
 		return false;
 
 	spin_lock_irqsave(&worker->lock, flags);
-	if (worker->cur_work == work) {
+	if (worker->cur_work == work &&
+	    !(worker->cur_work->flags & IO_WQ_WORK_NO_CANCEL)) {
 		send_sig(SIGINT, worker->task, 1);
 		ret = true;
 	}
@@ -1006,7 +1024,7 @@ void io_wq_flush(struct io_wq *wq)
 	}
 }
 
-struct io_wq *io_wq_create(unsigned bounded, struct io_wq_data *data)
+static struct io_wq *__io_wq_create(unsigned bounded, struct io_wq_data *data)
 {
 	int ret = -ENOMEM, node;
 	struct io_wq *wq;
@@ -1064,6 +1082,16 @@ struct io_wq *io_wq_create(unsigned bounded, struct io_wq_data *data)
 			ret = -ENOMEM;
 			goto err;
 		}
+		refcount_set(&wq->use_refs, 1);
+
+		/* if we're out of IDs or fail to get one, use 0 */
+		mutex_lock(&wq_lock);
+		wq->id = idr_alloc(&wq_idr, wq, 1, INT_MAX, GFP_KERNEL);
+		if (wq->id < 0)
+			wq->id = 0;
+
+		list_add(&wq->wq_list, &wq_list);
+		mutex_unlock(&wq_lock);
 		reinit_completion(&wq->done);
 		return wq;
 	}
@@ -1078,13 +1106,43 @@ err:
 	return ERR_PTR(ret);
 }
 
+static bool io_wq_match(struct io_wq *wq, struct io_wq_data *data)
+{
+	if (data->creds != wq->creds || data->user != wq->user)
+		return false;
+	if (data->get_work != wq->get_work || data->put_work != wq->put_work)
+		return false;
+	return refcount_inc_not_zero(&wq->use_refs);
+}
+
+/*
+ * Find and return io_wq with given id and grab a reference to it.
+ */
+struct io_wq *io_wq_create_id(unsigned bounded, struct io_wq_data *data,
+			      unsigned int id)
+{
+	if (id) {
+		struct io_wq *wq;
+
+		mutex_lock(&wq_lock);
+		wq = idr_find(&wq_idr, id);
+		if (wq && io_wq_match(wq, data)) {
+			mutex_unlock(&wq_lock);
+			return wq;
+		}
+		mutex_unlock(&wq_lock);
+	}
+
+	return __io_wq_create(bounded, data);
+}
+
 static bool io_wq_worker_wake(struct io_worker *worker, void *data)
 {
 	wake_up_process(worker->task);
 	return false;
 }
 
-void io_wq_destroy(struct io_wq *wq)
+static void __io_wq_destroy(struct io_wq *wq)
 {
 	int node;
 
@@ -1103,4 +1161,22 @@ void io_wq_destroy(struct io_wq *wq)
 		kfree(wq->wqes[node]);
 	kfree(wq->wqes);
 	kfree(wq);
+}
+
+void io_wq_destroy(struct io_wq *wq)
+{
+	if (refcount_dec_and_test(&wq->use_refs)) {
+		mutex_lock(&wq_lock);
+		if (wq->id)
+			idr_remove(&wq_idr, wq->id);
+		list_del(&wq->wq_list);
+		mutex_unlock(&wq_lock);
+
+		__io_wq_destroy(wq);
+	}
+}
+
+unsigned int io_wq_id(struct io_wq *wq)
+{
+	return wq->id;
 }
