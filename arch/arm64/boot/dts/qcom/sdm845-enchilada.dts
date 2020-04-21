@@ -16,10 +16,13 @@
 	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp";
 
 	aliases {
-		display0 = &framebuffer0
+		display0 = &framebuffer0;
 	};
 
 	chosen {
+		#address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
 		stdout-path = "display0";
 
 		/*
@@ -76,9 +79,6 @@
 	};
 };
 
-&dispcc {
-	status = "disabled";
-};
 
 &adsp_pas {
 	status = "okay";
