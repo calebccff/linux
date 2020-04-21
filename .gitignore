@@ -10,6 +10,7 @@
 #
 # Normal rules (sorted alphabetically)
 #
+initfs/
 .*
 *.a
 *.asn1.[ch]
