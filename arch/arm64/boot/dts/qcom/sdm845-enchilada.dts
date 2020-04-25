@@ -83,6 +83,14 @@
 	status = "disabled";
 };
 
+&slimbam {
+	status = "disabled";
+};
+
+&gpu {
+	status = "disabled";
+};
+
 &adsp_pas {
 	status = "okay";
 	firmware-name = "qcom/sdm845/adsp.mdt";
