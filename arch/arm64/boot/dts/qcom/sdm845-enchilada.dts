@@ -444,18 +444,18 @@
 	vdda-phy-supply = <&vdda_ufs1_core>;
 	vdda-pll-supply = <&vdda_ufs1_1p2>;
 };
-/*
+
 &usb_1 {
 	status = "okay";
 };
 
 &usb_1_dwc3 {
-	*/
+	
 	/* Until we have Type C hooked up we'll force this as peripheral. */
-	/*
+	
 	dr_mode = "peripheral";
 };
-*/
+
 
 &usb_1_hsphy {
 	status = "okay";
