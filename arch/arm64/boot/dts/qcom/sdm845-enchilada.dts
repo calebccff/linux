@@ -526,6 +526,44 @@
 	};
 };
 
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&i2c12 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	touchscreen: synaptics-rmi4-i2c@20 {
+		compatible = "syna,rmi4-i2c";
+		reg = <0x20>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupts-extended = <&tlmm 125 0x2008>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&touch_default>;
+		pinctrl-1 = <&touch_int_suspend &touch_reset_suspend>;
+		vdd-supply = <&vreg_l28a_3p0>;
+		vio-supply = <&vreg_l6a_1p8>;
+		syna,reset-delay-ms = <300>;
+		syna,startup-delay-ms = <2000>;
+		
+
+		rmi4-f01@1 {
+			reg = <0x01>;
+			syna,nosleep-mode = <1>;
+		};
+
+		rmi4_f12: rmi4-f12@12 {
+			reg = <0x12>;
+			touchscreen-x-mm = <68>;
+			touchscreen-y-mm = <144>;
+			syna,sensor-type = <1>;
+			syna,rezero-wait-ms = <200>;
+		};
+	};
+};
+
 &qup_uart9_default {
 	pinconf-tx {
 		pins = "gpio4";
@@ -569,6 +607,45 @@
 			pins = "sdc2_data";
 			bias-pull-up;
 			drive-strength = <16>;
+		};
+	};
+
+	touch_default: touch_default {
+		mux {
+			pins = "gpio99", "gpio125";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio99", "gpio125";
+			drive-strength = <16>;
+			bias-pull-up;
+		};
+	};
+
+	touch_int_suspend: touch_int_suspend {
+		mux {
+			pins = "gpio125";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio125";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	touch_reset_suspend: touch_reset_suspend {
+		mux {
+			pins = "gpio99";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio99";
+			drive-strength = <2>;
+			bias-pull-down;
 		};
 	};
 };
