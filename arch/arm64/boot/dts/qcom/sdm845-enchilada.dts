@@ -83,10 +83,6 @@
 	status = "disabled";
 };
 
-// &slimbam {
-// 	status = "disabled";
-// };
-
 &gpu {
 	status = "disabled";
 };
