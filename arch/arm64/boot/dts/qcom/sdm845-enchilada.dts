@@ -419,14 +419,16 @@
 // 	status = "okay";
 // };
 
-// &mss_pil {
-// 	status = "okay";
-// 	firmware-name = "qcom/sdm845/mba.mbn", "qcom/sdm845/modem.mbn";
-// };
+/* Modem/wifi*/
+&mss_pil {
+	status = "okay";
+	firmware-name = "qcom/sdm845/mba.mbn", "qcom/sdm845/modem.mbn";
+};
 
-// &qupv3_id_1 {
-// 	status = "okay";
-// };
+/* GENI device - does i2c, uart, spi and all that stuff */
+&qupv3_id_1 {
+	status = "okay";
+};
 
 
 &ufs_mem_hc {
