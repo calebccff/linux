@@ -61,6 +61,8 @@ static int rmi_set_page(struct rmi_i2c_xport *rmi_i2c, u8 page)
 	u8 txbuf[2] = {RMI_PAGE_SELECT_REGISTER, page};
 	int retval;
 
+	dev_info(&client->dev, "%s: setting page to %d for device with address %x", __func__, page, client->addr);
+
 	retval = i2c_master_send(client, txbuf, sizeof(txbuf));
 	if (retval != sizeof(txbuf)) {
 		dev_err(&client->dev,
