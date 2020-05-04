@@ -10,6 +10,7 @@
 enum geni_se_xfer_mode {
 	GENI_SE_INVALID,
 	GENI_SE_FIFO,
+	GENI_GSI_DMA,
 	GENI_SE_DMA,
 };
 
@@ -41,6 +42,10 @@ struct geni_se {
 	struct clk *clk;
 	unsigned int num_clk_levels;
 	unsigned long *clk_perf_tbl;
+	struct pinctrl *geni_pinctrl;
+	struct pinctrl_state *geni_gpio_active;
+	struct pinctrl_state *geni_gpio_sleep;
+	struct pinctrl_state *geni_gpio_reset;
 };
 
 /* Common SE registers */
