@@ -291,6 +291,37 @@ static void geni_se_select_dma_mode(struct geni_se *se)
 	writel_relaxed(val, se->base + SE_GENI_DMA_MODE_EN);
 }
 
+static void geni_se_select_gsi_mode(struct geni_se *se) {
+	unsigned int geni_dma_mode = 0;
+	unsigned int gsi_event_en = 0;
+	unsigned int common_geni_m_irq_en = 0;
+	unsigned int common_geni_s_irq_en = 0;
+
+	common_geni_m_irq_en = geni_read_reg(se->base, SE_GENI_M_IRQ_EN);
+	common_geni_s_irq_en = geni_read_reg(se->base, SE_GENI_S_IRQ_EN);
+	common_geni_m_irq_en &=
+			~(M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN |
+			M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN);
+	common_geni_s_irq_en &= ~S_CMD_DONE_EN;
+	geni_dma_mode = geni_read_reg(se->base, SE_GENI_DMA_MODE_EN);
+	gsi_event_en = geni_read_reg(se->base, SE_GSI_EVENT_EN);
+
+	geni_dma_mode |= GENI_DMA_MODE_EN;
+	gsi_event_en |= (DMA_RX_EVENT_EN | DMA_TX_EVENT_EN |
+				GENI_M_EVENT_EN | GENI_S_EVENT_EN);
+
+	geni_write_reg(0, se->base, SE_IRQ_EN);
+	geni_write_reg(common_geni_s_irq_en, se->base, SE_GENI_S_IRQ_EN);
+	geni_write_reg(common_geni_m_irq_en, se->base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0xFFFFFFFF, se->base, SE_GENI_M_IRQ_CLEAR);
+	geni_write_reg(0xFFFFFFFF, se->base, SE_GENI_S_IRQ_CLEAR);
+	geni_write_reg(0xFFFFFFFF, se->base, SE_DMA_TX_IRQ_CLR);
+	geni_write_reg(0xFFFFFFFF, se->base, SE_DMA_RX_IRQ_CLR);
+	geni_write_reg(geni_dma_mode, se->base, SE_GENI_DMA_MODE_EN);
+	geni_write_reg(gsi_event_en, se->base, SE_GSI_EVENT_EN);
+	return 0;
+}
+
 /**
  * geni_se_select_mode() - Select the serial engine transfer mode
  * @se:		Pointer to the concerned serial engine.
@@ -307,6 +338,8 @@ void geni_se_select_mode(struct geni_se *se, enum geni_se_xfer_mode mode)
 	case GENI_SE_DMA:
 		geni_se_select_dma_mode(se);
 		break;
+	case GENI_GSI_DMA:
+		geni_se_select_gsi_mode(se);
 	case GENI_SE_INVALID:
 	default:
 		break;
@@ -439,6 +472,7 @@ static void geni_se_clks_off(struct geni_se *se)
 	clk_bulk_disable_unprepare(ARRAY_SIZE(wrapper->ahb_clks),
 						wrapper->ahb_clks);
 }
+EXPORT_SYMBOL(geni_se_clks_off);
 
 /**
  * geni_se_resources_off() - Turn off resources associated with the serial
@@ -479,6 +513,7 @@ static int geni_se_clks_on(struct geni_se *se)
 							wrapper->ahb_clks);
 	return ret;
 }
+EXPORT_SYMBOL(geni_se_clks_on);
 
 /**
  * geni_se_resources_on() - Turn on resources associated with the serial
