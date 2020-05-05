@@ -23,7 +23,19 @@ enum geni_se_protocol_type {
 	GENI_SE_I3C,
 };
 
-struct geni_wrapper;
+#define MAX_CLK_PERF_LEVEL 32
+#define NUM_AHB_CLKS 2
+/**
+ * @struct geni_wrapper - Data structure to represent the QUP Wrapper Core
+ * @dev:		Device pointer of the QUP wrapper core
+ * @base:		Base address of this instance of QUP wrapper core
+ * @ahb_clks:		Handle to the primary & secondary AHB clocks
+ */
+struct geni_wrapper {
+	struct device *dev;
+	void __iomem *base;
+	struct clk_bulk_data ahb_clks[NUM_AHB_CLKS];
+};
 struct clk;
 
 /**
@@ -53,6 +65,7 @@ struct geni_se {
 #define SE_GENI_STATUS			0x40
 #define GENI_SER_M_CLK_CFG		0x48
 #define GENI_SER_S_CLK_CFG		0x4c
+#define GENI_IF_FIFO_DISABLE_RO		0x64
 #define GENI_FW_REVISION_RO		0x68
 #define SE_GENI_CLK_SEL			0x7c
 #define SE_GENI_DMA_MODE_EN		0x258
@@ -237,6 +250,37 @@ struct geni_se {
 #if IS_ENABLED(CONFIG_QCOM_GENI_SE)
 
 u32 geni_se_get_qup_hw_version(struct geni_se *se);
+
+/**
+ * geni_se_iommu_map_buf() - Map a single buffer into QUPv3 context bank
+ * @wrapper_dev:	Pointer to the corresponding QUPv3 wrapper core.
+ * @iova:		Pointer in which the mapped virtual address is stored.
+ * @buf:		Address of the buffer that needs to be mapped.
+ * @size:		Size of the buffer.
+ * @dir:		Direction of the DMA transfer.
+ *
+ * This function is used to map an already allocated buffer into the
+ * QUPv3 context bank device space.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int geni_se_iommu_map_buf(struct device *wrapper_dev, dma_addr_t *iova,
+			  void *buf, size_t size, enum dma_data_direction dir);
+
+/**
+ * geni_se_iommu_unmap_buf() - Unmap a single buffer from QUPv3 context bank
+ * @wrapper_dev:	Pointer to the corresponding QUPv3 wrapper core.
+ * @iova:		Pointer in which the mapped virtual address is stored.
+ * @size:		Size of the buffer.
+ * @dir:		Direction of the DMA transfer.
+ *
+ * This function is used to unmap an already mapped buffer from the
+ * QUPv3 context bank device space.
+ *
+ * Return:	0 on success, standard Linux error codes on failure/error.
+ */
+int geni_se_iommu_unmap_buf(struct device *wrapper_dev, dma_addr_t *iova,
+			    size_t size, enum dma_data_direction dir);
 
 /**
  * geni_se_read_proto() - Read the protocol configured for a serial engine
