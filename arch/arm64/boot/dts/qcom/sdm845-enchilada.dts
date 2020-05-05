@@ -13,7 +13,7 @@
 
 / {
 	model = "OnePlus 6";
-	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp";
+	compatible = "qcom,sdm845-mtp", "qcom,sdm845", "qcom,mtp", "qcom,oneplus6";
 
 	aliases {
 		display0 = &framebuffer0;
@@ -52,6 +52,18 @@
             no-map;
             reg = <0 0x9d400000 0 (1080 * 2280 * 4)>;
         };
+
+		ramoops@ac300000 {
+			compatible = "ramoops";
+			reg = < 0x00 0xac300000 0x00 0x400000 >;
+			record-size = < 0x40000 >;
+			console-size = < 0x40000 >;
+			ftrace-size = < 0x40000 >;
+			pmsg-size = < 0x200000 >;
+			devinfo-size = < 0x1000 >;
+			ecc-size = < 0x00 >;
+			phandle = < 0x4cb >;
+		};
     };
 
 	vph_pwr: vph-pwr-regulator {
@@ -401,10 +413,10 @@
 			   <GCC_LPASS_SWAY_CLK>;
 };
 
-&i2c10 {
-	status = "okay";
-	clock-frequency = <400000>;
-};
+// &i2c10 {
+// 	status = "okay";
+// 	clock-frequency = <400000>;
+// };
 
 
 // &mdss {
@@ -518,20 +530,19 @@
 
 /* PINCTRL - additions to nodes defined in sdm845.dtsi */
 
-&qup_i2c10_default {
-	pinconf {
-		pins = "gpio55", "gpio56";
-		drive-strength = <2>;
-		bias-disable;
-	};
-};
-
-&qupv3_id_0 {
-	status = "okay";
-};
+// &qup_i2c10_default {
+// 	pinconf {
+// 		pins = "gpio55", "gpio56";
+// 		drive-strength = <2>;
+// 		bias-disable;
+// 	};
+// };
 
 &i2c12 {
 	status = "okay";
+	dmas = <&gpi_dma1 0 4 3 64 0>,
+					<&gpi_dma1 1 4 3 64 0>;
+	dma-names = "tx", "rx";
 
 	touchscreen: synaptics-rmi4-i2c@20 {
 		compatible = "syna,rmi4-i2c";
@@ -539,9 +550,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		interrupts-extended = <&tlmm 125 0x2008>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&touch_default>;
-		pinctrl-1 = <&touch_suspend>;
+		// pinctrl-names = "default", "sleep";
+		// pinctrl-0 = <&touch_default>;
+		// pinctrl-1 = <&touch_suspend>;
 		vdd-supply = <&vreg_l28a_3p0>;
 		vio-supply = <&vreg_l6a_1p8>;
 		syna,reset-delay-ms = <200>;
@@ -611,40 +622,40 @@
 
 	// touch_default: touch_default {
 	// 	mux {
-	// 		pins = "gpio49", "gpio58";
+	// 		pins = "gpio49", "gpio50";
 	// 		function = "gpio";
 	// 	};
 
 	// 	config {
-	// 		pins = "gpio49", "gpio58";
+	// 		pins = "gpio49", "gpio50";
 	// 		drive-strength = <16>;
 	// 		bias-pull-up;
 	// 	};
 	// };
 
-	touch_default: touch_default {
-		mux {
-			pins = "gpio58";
-			function = "gpio";
-		};
+	// touch_default: touch_default {
+	// 	mux {
+	// 		pins = "gpio50";
+	// 		function = "gpio";
+	// 	};
 
-		config {
-			pins = "gpio58";
-			drive-strength = <2>;
-			bias-disable;
-		};
-	};
+	// 	config {
+	// 		pins = "gpio50";
+	// 		drive-strength = <2>;
+	// 		bias-disable;
+	// 	};
+	// };
 
-	touch_suspend: touch_suspend {
-		mux {
-			pins = "gpio49";
-			function = "gpio";
-		};
+	// touch_suspend: touch_suspend {
+	// 	mux {
+	// 		pins = "gpio49";
+	// 		function = "gpio";
+	// 	};
 
-		config {
-			pins = "gpio49";
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
+	// 	config {
+	// 		pins = "gpio49";
+	// 		drive-strength = <2>;
+	// 		bias-pull-down;
+	// 	};
+	// };
 };
