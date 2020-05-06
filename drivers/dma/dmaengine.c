@@ -805,8 +805,11 @@ struct dma_chan *dma_request_chan(struct device *dev, const char *name)
 	struct dma_device *d, *_d;
 	struct dma_chan *chan = NULL;
 
+	dev_info(dev, "Requesting DMA channel for: %s", name);
+
 	/* If device-tree is present get slave info from here */
 	if (dev->of_node)
+		dev_info(dev, "Have DTS node! Name: %s", dev->of_node->name);
 		chan = of_dma_request_slave_channel(dev->of_node, name);
 
 	/* If device was enumerated by ACPI get slave info from here */

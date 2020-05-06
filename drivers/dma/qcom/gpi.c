@@ -49,7 +49,7 @@
 		ipc_log_string(gpi_dev->ilctxt, \
 			"%s: " fmt, __func__, ##__VA_ARGS__); \
 	} while (0)
-#define GPI_ERR(gpi_dev, fmt, ...) do { \
+#define dev_info(gpi_dev, fmt, ...) do { \
 	if (gpi_dev->klog_lvl >= LOG_LVL_ERROR) \
 		dev_err(gpi_dev->dev, "%s: " fmt, __func__, ##__VA_ARGS__); \
 	if (gpi_dev->ilctxt && gpi_dev->ipc_log_lvl >= LOG_LVL_ERROR) \
@@ -556,7 +556,7 @@ static inline void *to_virtual(const struct gpi_ring *const ring,
 	return ring->base + (addr - ring->phys_addr);
 }
 
-#ifdef CONFIG_QCOM_GPI_DMA_DEBUG
+//#ifdef CONFIG_QCOM_GPI_DMA_DEBUG
 // static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 // {
 // 	u64 time = sched_clock();
@@ -590,7 +590,7 @@ static inline void *to_virtual(const struct gpi_ring *const ring,
 // 		offset, val);
 // 	writel_relaxed(val, addr);
 // }
-#else
+//#else
 static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 {
 	u32 val = readl_relaxed(addr);
@@ -605,7 +605,7 @@ static inline void gpi_write_reg(struct gpii *gpii, void __iomem *addr, u32 val)
 		 addr - gpii->regs, val);
 	writel_relaxed(val, addr);
 }
-#endif
+//#endif
 
 /* gpi_write_reg_field - write to specific bit field */
 static inline void gpi_write_reg_field(struct gpii *gpii,
@@ -2460,15 +2460,14 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	struct gpii_chan *gpii_chan;
 
 	if (args->args_count < REQ_OF_DMA_ARGS) {
-		GPI_ERR(gpi_dev,
-			"gpii require minimum 6 args, client passed:%d args\n",
+		dev_info(gpi_dev, 			"gpii require minimum 6 args, client passed:%d args\n",
 			args->args_count);
 		return NULL;
 	}
 
 	chid = args->args[0];
 	if (chid >= MAX_CHANNELS_PER_GPII) {
-		GPI_ERR(gpi_dev, "gpii channel:%d not valid\n", chid);
+		dev_info(gpi_dev, "gpii channel:%d not valid\n", chid);
 		return NULL;
 	}
 
@@ -2477,13 +2476,13 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	/* find next available gpii to use */
 	gpii = gpi_find_avail_gpii(gpi_dev, seid);
 	if (gpii < 0) {
-		GPI_ERR(gpi_dev, "no available gpii instances\n");
+		dev_info(gpi_dev, "no available gpii instances\n");
 		return NULL;
 	}
 
 	gpii_chan = &gpi_dev->gpiis[gpii].gpii_chan[chid];
 	if (gpii_chan->vc.chan.client_count) {
-		GPI_ERR(gpi_dev, "gpii:%d chid:%d seid:%d already configured\n",
+		dev_info(gpi_dev, "gpii:%d chid:%d seid:%d already configured\n",
 			gpii, chid, gpii_chan->seid);
 		return NULL;
 	}
@@ -2591,8 +2590,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 		/* create mapping table */
 		mapping = gpi_create_mapping(gpi_dev);
 		if (IS_ERR(mapping)) {
-			GPI_ERR(gpi_dev,
-				"Failed to create iommu mapping, ret:%ld\n",
+			dev_info(gpi_dev, 				"Failed to create iommu mapping, ret:%ld\n",
 				PTR_ERR(mapping));
 			return PTR_ERR(mapping);
 		}
@@ -2603,8 +2601,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 		// 	ret = iommu_domain_set_attr(mapping->domain,
 		// 			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
 		// 	if (ret) {
-		// 		GPI_ERR(gpi_dev,
-		// 			"Failed to set attr S1_BYPASS, ret:%d\n",
+		// 		dev_info(gpi_dev, 		// 			"Failed to set attr S1_BYPASS, ret:%d\n",
 		// 			ret);
 		// 		goto release_mapping;
 		// 	}
@@ -2616,8 +2613,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 		// 	ret = iommu_domain_set_attr(mapping->domain,
 		// 				    DOMAIN_ATTR_FAST, &fast);
 		// 	if (ret) {
-		// 		GPI_ERR(gpi_dev,
-		// 			"Failed to set attr FAST, ret:%d\n",
+		// 		dev_info(gpi_dev, 		// 			"Failed to set attr FAST, ret:%d\n",
 		// 			ret);
 		// 		goto release_mapping;
 		// 	}
@@ -2629,8 +2625,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 		// 	ret = iommu_domain_set_attr(mapping->domain,
 		// 				DOMAIN_ATTR_ATOMIC, &atomic);
 		// 	if (ret) {
-		// 		GPI_ERR(gpi_dev,
-		// 			"Failed to set attr ATOMIC, ret:%d\n",
+		// 		dev_info(gpi_dev, 		// 			"Failed to set attr ATOMIC, ret:%d\n",
 		// 			ret);
 		// 		goto release_mapping;
 		// 	}
@@ -2638,8 +2633,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 
 		ret = arm_iommu_attach_device(gpi_dev->dev, mapping);
 		if (ret) {
-			GPI_ERR(gpi_dev,
-				"Failed with iommu_attach, ret:%d\n", ret);
+			dev_info(gpi_dev, 				"Failed with iommu_attach, ret:%d\n", ret);
 			goto release_mapping;
 		}
 	}
@@ -2647,7 +2641,7 @@ static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 	GPI_LOG(gpi_dev, "Setting dma mask to 64\n");
 	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
 	if (ret) {
-		GPI_ERR(gpi_dev, "Error setting dma_mask to 64, ret:%d\n", ret);
+		dev_info(gpi_dev, "Error setting dma_mask to 64, ret:%d\n", ret);
 		goto error_set_mask;
 	}
 
@@ -2671,46 +2665,51 @@ static int gpi_probe(struct platform_device *pdev)
 	if (!gpi_dev)
 		return -ENOMEM;
 
+	printk("%s: Probing GPI", __func__);
+	
+
 	gpi_dev->dev = &pdev->dev;
 	gpi_dev->klog_lvl = DEFAULT_KLOG_LVL;
+	printk("%s: Getting reg", __func__);
 	gpi_dev->res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "gpi-top");
 	if (!gpi_dev->res) {
-		GPI_ERR(gpi_dev, "missing 'reg' DT node\n");
+		printk("missing 'reg' DT node\n");
 		return -EINVAL;
 	}
+	dev_info(gpi_dev, "%s: Fetched 'gpi-top' resource", __func__);
 	gpi_dev->regs = devm_ioremap(gpi_dev->dev, gpi_dev->res->start,
 					     resource_size(gpi_dev->res));
 	if (!gpi_dev->regs) {
-		GPI_ERR(gpi_dev, "IO remap failed\n");
+		dev_info(gpi_dev, "IO remap failed\n");
 		return -EFAULT;
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,max-num-gpii",
 				   &gpi_dev->max_gpii);
 	if (ret) {
-		GPI_ERR(gpi_dev, "missing 'max-no-gpii' DT node\n");
+		dev_info(gpi_dev, "missing 'max-no-gpii' DT node\n");
 		return ret;
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,gpii-mask",
 				   &gpi_dev->gpii_mask);
 	if (ret) {
-		GPI_ERR(gpi_dev, "missing 'gpii-mask' DT node\n");
+		dev_info(gpi_dev, "missing 'gpii-mask' DT node\n");
 		return ret;
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,ev-factor",
 				   &gpi_dev->ev_factor);
 	if (ret) {
-		GPI_ERR(gpi_dev, "missing 'qcom,ev-factor' DT node\n");
+		dev_info(gpi_dev, "missing 'qcom,ev-factor' DT node\n");
 		return ret;
 	}
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,smmu-cfg",
 				   &gpi_dev->smmu_cfg);
 	if (ret) {
-		GPI_ERR(gpi_dev, "missing 'qcom,smmu-cfg' DT node\n");
+		dev_info(gpi_dev, "missing 'qcom,smmu-cfg' DT node\n");
 		return ret;
 	}
 	if (gpi_dev->smmu_cfg && !(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
@@ -2720,8 +2719,7 @@ static int gpi_probe(struct platform_device *pdev)
 						      "qcom,iova-range",
 						      sizeof(iova_range));
 		if (ret != 1) {
-			GPI_ERR(gpi_dev,
-				"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
+			dev_info(gpi_dev, 				"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
 				ret);
 		}
 
@@ -2729,8 +2727,7 @@ static int gpi_probe(struct platform_device *pdev)
 					"qcom,iova-range", iova_range,
 					sizeof(iova_range) / sizeof(u64));
 		if (ret) {
-			GPI_ERR(gpi_dev,
-				"could not read DT prop 'qcom,iova-range\n");
+			dev_info(gpi_dev, 				"could not read DT prop 'qcom,iova-range\n");
 			return ret;
 		}
 		gpi_dev->iova_base = iova_range[0];
@@ -2739,7 +2736,7 @@ static int gpi_probe(struct platform_device *pdev)
 
 	ret = gpi_smmu_init(gpi_dev);
 	if (ret) {
-		GPI_ERR(gpi_dev, "error configuring smmu, ret:%d\n", ret);
+		dev_info(gpi_dev, "error configuring smmu, ret:%d\n", ret);
 		return ret;
 	}
 
@@ -2780,7 +2777,7 @@ static int gpi_probe(struct platform_device *pdev)
 		/* set up irq */
 		ret = platform_get_irq(pdev, i);
 		if (ret < 0) {
-			GPI_ERR(gpi_dev, "could not req. irq for gpii%d ret:%d",
+			dev_info(gpi_dev, "could not req. irq for gpii%d ret:%d",
 				i, ret);
 			return ret;
 		}
@@ -2854,14 +2851,14 @@ static int gpi_probe(struct platform_device *pdev)
 	/* register with dmaengine framework */
 	ret = dma_async_device_register(&gpi_dev->dma_device);
 	if (ret) {
-		GPI_ERR(gpi_dev, "async_device_register failed ret:%d", ret);
+		dev_info(gpi_dev, "async_device_register failed ret:%d", ret);
 		return ret;
 	}
 
 	ret = of_dma_controller_register(gpi_dev->dev->of_node,
 					 gpi_of_dma_xlate, gpi_dev);
 	if (ret) {
-		GPI_ERR(gpi_dev, "of_dma_controller_reg failed ret:%d", ret);
+		dev_info(gpi_dev, "of_dma_controller_reg failed ret:%d", ret);
 		return ret;
 	}
 

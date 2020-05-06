@@ -23,19 +23,7 @@ enum geni_se_protocol_type {
 	GENI_SE_I3C,
 };
 
-#define MAX_CLK_PERF_LEVEL 32
-#define NUM_AHB_CLKS 2
-/**
- * @struct geni_wrapper - Data structure to represent the QUP Wrapper Core
- * @dev:		Device pointer of the QUP wrapper core
- * @base:		Base address of this instance of QUP wrapper core
- * @ahb_clks:		Handle to the primary & secondary AHB clocks
- */
-struct geni_wrapper {
-	struct device *dev;
-	void __iomem *base;
-	struct clk_bulk_data ahb_clks[NUM_AHB_CLKS];
-};
+struct geni_wrapper;
 struct clk;
 
 /**
@@ -51,6 +39,9 @@ struct geni_se {
 	void __iomem *base;
 	struct device *dev;
 	struct geni_wrapper *wrapper;
+	struct mutex iommu_lock;
+	struct dma_iommu_mapping *iommu_map;
+	bool iommu_s1_bypass;
 	struct clk *clk;
 	unsigned int num_clk_levels;
 	unsigned long *clk_perf_tbl;
@@ -264,7 +255,7 @@ u32 geni_se_get_qup_hw_version(struct geni_se *se);
  *
  * Return:	0 on success, standard Linux error codes on failure/error.
  */
-int geni_se_iommu_map_buf(struct device *wrapper_dev, dma_addr_t *iova,
+int geni_se_iommu_map_buf(struct geni_se *se, dma_addr_t *iova,
 			  void *buf, size_t size, enum dma_data_direction dir);
 
 /**
@@ -279,7 +270,7 @@ int geni_se_iommu_map_buf(struct device *wrapper_dev, dma_addr_t *iova,
  *
  * Return:	0 on success, standard Linux error codes on failure/error.
  */
-int geni_se_iommu_unmap_buf(struct device *wrapper_dev, dma_addr_t *iova,
+void geni_se_iommu_unmap_buf(struct geni_se *se, dma_addr_t *iova,
 			    size_t size, enum dma_data_direction dir);
 
 /**
@@ -445,6 +436,13 @@ void geni_se_select_mode(struct geni_se *se, enum geni_se_xfer_mode mode);
 
 void geni_se_config_packing(struct geni_se *se, int bpw, int pack_words,
 			    bool msb_to_lsb, bool tx_cfg, bool rx_cfg);
+
+void geni_se_clks_off(struct geni_se *se);
+
+int geni_se_clks_on(struct geni_se *se);
+
+// void *geni_se_iommu_alloc_buf(struct geni_se *se, dma_addr_t *iova,
+// 			      size_t size);
 
 int geni_se_resources_off(struct geni_se *se);
 

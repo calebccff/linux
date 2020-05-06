@@ -249,8 +249,10 @@ struct dma_chan *of_dma_request_slave_channel(struct device_node *np,
 	}
 
 	/* Silently fail if there is not even the "dmas" property */
-	if (!of_find_property(np, "dmas", NULL))
+	if (!of_find_property(np, "dmas", NULL)) {
+		pr_err("%s: No dmas property for node\n", __func__);
 		return ERR_PTR(-ENODEV);
+	}
 
 	count = of_property_count_strings(np, "dma-names");
 	if (count < 0) {
