@@ -77,6 +77,44 @@
 
 		vin-supply = <&vph_pwr>;
 	};
+
+	i2c_touch: i2c {
+	compatible = "i2c-gpio";
+	sda-gpios = <&tlmm 49 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+	scl-gpios = <&tlmm 50 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+	i2c-gpio,delay-us = <5>;	/* 5~=100 kHz */
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c_touch_default>;
+	status = "okay";
+	touchscreen: synaptics-rmi4-i2c@20 {
+		compatible = "syna,rmi4-i2c";
+		reg = <0x20>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupts-extended = <&tlmm 125 0x2008>; // IRQF_ONESHOT|IRQF_TRIGGER_LOW
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_pin &ts_1p8_pin>;
+		vdd-supply = <&vreg_l28a_3p0>;
+		vio-supply = <&vreg_l6a_1p8>;
+		syna,reset-delay-ms = <200>;
+		syna,startup-delay-ms = <500>;
+
+		rmi4-f01@1 {
+			reg = <0x01>;
+			syna,nosleep-mode = <1>;
+		};
+
+		rmi4_f12: rmi4-f12@12 {
+			reg = <0x12>;
+			touchscreen-x-mm = <68>;
+			touchscreen-y-mm = <144>;
+			syna,sensor-type = <1>;
+			syna,rezero-wait-ms = <200>;
+		};
+	};
+};
 };
 
 &dispcc {
@@ -407,6 +445,7 @@
 };
 
 
+
 // &mdss {
 // 	status = "okay";
 // };
@@ -518,6 +557,7 @@
 
 /* PINCTRL - additions to nodes defined in sdm845.dtsi */
 
+<<<<<<< HEAD
 &qup_i2c10_default {
 	pinconf {
 		pins = "gpio55", "gpio56";
@@ -525,6 +565,15 @@
 		bias-disable;
 	};
 };
+=======
+// &qup_i2c10_default {
+// 	pinconf {
+// 		pins = "gpio55", "gpio56";
+// 		drive-strength = <2>;
+// 		bias-disable;
+// 	};
+// };
+>>>>>>> 77be5c5284ce... enchilada: touch: switch to bitbang i2c and TOUCH WORKS
 
 &qup_uart9_default {
 	pinconf-tx {
@@ -569,6 +618,45 @@
 			pins = "sdc2_data";
 			bias-pull-up;
 			drive-strength = <16>;
+		};
+	};
+
+	i2c_touch_default: i2c-touch-default {
+		mux {
+			pins = "gpio49", "gpio50";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio49", "gpio50";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
+	ts_int_pin: ts-int {
+		mux {
+			pins = "gpio99", "gpio125";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio99", "gpio125";
+			drive-strength = <16>;
+			bias-pull-up;
+		};
+	};
+
+	ts_1p8_pin: ts-1p8 {
+		mux {
+			pins = "gpio88";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio88";
+			drive-strength = <16>;
+			bias-pull-up;
 		};
 	};
 };
