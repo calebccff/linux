@@ -9,7 +9,11 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/input/linux-event-codes.h>
 #include "sdm845.dtsi"
+
+// Needed for some GPIO (like the volume buttons)
+#include "pm8998.dtsi"
 
 / {
 	model = "OnePlus 6";
@@ -88,33 +92,94 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c_touch_default>;
 	status = "okay";
-	touchscreen: synaptics-rmi4-i2c@20 {
-		compatible = "syna,rmi4-i2c";
-		reg = <0x20>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupts-extended = <&tlmm 125 0x2008>; // IRQF_ONESHOT|IRQF_TRIGGER_LOW
-		pinctrl-names = "default";
-		pinctrl-0 = <&ts_int_pin &ts_1p8_pin>;
-		vdd-supply = <&vreg_l28a_3p0>;
-		vio-supply = <&vreg_l6a_1p8>;
-		syna,reset-delay-ms = <200>;
-		syna,startup-delay-ms = <500>;
+		touchscreen: synaptics-rmi4-i2c@20 {
+			compatible = "syna,rmi4-i2c";
+			reg = <0x20>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts-extended = <&tlmm 125 0x2008>; // IRQF_ONESHOT|IRQF_TRIGGER_LOW
+			pinctrl-names = "default";
+			pinctrl-0 = <&ts_int_pin &ts_1p8_pin>;
+			vdd-supply = <&vreg_l28a_3p0>;
+			vio-supply = <&vreg_l6a_1p8>;
+			syna,reset-delay-ms = <200>;
+			syna,startup-delay-ms = <500>;
 
-		rmi4-f01@1 {
-			reg = <0x01>;
-			syna,nosleep-mode = <1>;
-		};
+			rmi4-f01@1 {
+				reg = <0x01>;
+				syna,nosleep-mode = <1>;
+			};
 
-		rmi4_f12: rmi4-f12@12 {
-			reg = <0x12>;
-			touchscreen-x-mm = <68>;
-			touchscreen-y-mm = <144>;
-			syna,sensor-type = <1>;
-			syna,rezero-wait-ms = <200>;
+			rmi4_f12: rmi4-f12@12 {
+				reg = <0x12>;
+				touchscreen-x-mm = <68>;
+				touchscreen-y-mm = <144>;
+				syna,sensor-type = <1>;
+				syna,rezero-wait-ms = <200>;
+			};
 		};
 	};
-};
+
+	gpio_tristate_key: gpio-keys {
+		compatible = "gpio-keys";
+		label = "Tri-state key";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tri_state_key_default>;
+
+		state-top {
+			label = "Tri-state key top";
+			linux,code = <KEY_A>;
+			// gpios = <&tlmm 40 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <500>;
+			linux,can-disable;
+		};
+
+		state-middle {
+			label = "Tri-state key middle";
+			linux,code = <KEY_B>;
+			// gpios = <&tlmm 42 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <52 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <500>;
+			linux,can-disable;
+		};
+
+		state-bottom {
+			label = "Tri-state key bottom";
+			linux,code = <KEY_C>;
+			// gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <126 IRQ_TYPE_EDGE_FALLING>;
+			debounce-interval = <500>;
+			linux,can-disable;
+		};
+	};
+
+	gpio_vol_keys: gpio-keys {
+		compatible = "gpio-keys";
+		label = "Volume keys";
+		autorepeat;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&volume_down_gpio &volume_up_gpio>;
+
+		vol-down {
+			label = "Volume down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&tlmm 5 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+		};
+
+		vol-up {
+			label = "Volume up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&tlmm 6 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+		};
+	};
 };
 
 &dispcc {
@@ -557,7 +622,6 @@
 
 /* PINCTRL - additions to nodes defined in sdm845.dtsi */
 
-<<<<<<< HEAD
 &qup_i2c10_default {
 	pinconf {
 		pins = "gpio55", "gpio56";
@@ -565,15 +629,6 @@
 		bias-disable;
 	};
 };
-=======
-// &qup_i2c10_default {
-// 	pinconf {
-// 		pins = "gpio55", "gpio56";
-// 		drive-strength = <2>;
-// 		bias-disable;
-// 	};
-// };
->>>>>>> 77be5c5284ce... enchilada: touch: switch to bitbang i2c and TOUCH WORKS
 
 &qup_uart9_default {
 	pinconf-tx {
@@ -586,6 +641,30 @@
 		pins = "gpio5";
 		drive-strength = <2>;
 		bias-pull-up;
+	};
+};
+
+&pm8998_gpio {
+	// GPIO 5 for Vol- key
+	volume_down_gpio: pm8998_gpio5 {
+		pinconf {
+			pins = "gpio5";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,drive-strength = <0>;
+		};
+	};
+
+	// GPIO 6 for Vol+ key
+	volume_up_gpio: pm8998_gpio6 {
+		pinconf {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			qcom,drive-strength = <0>;
+		};
 	};
 };
 
@@ -618,6 +697,19 @@
 			pins = "sdc2_data";
 			bias-pull-up;
 			drive-strength = <16>;
+		};
+	};
+
+	tri_state_key_default: tri_state_key_default {
+		mux {
+			pins = "gpio40", "gpio42", "gpio26";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio40", "gpio42", "gpio26";
+			drive-strength = <2>;
+			bias-disable;
 		};
 	};
 
