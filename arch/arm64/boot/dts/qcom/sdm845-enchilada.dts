@@ -540,6 +540,9 @@
 
 &i2c12 {
 	status = "okay";
+	dmas = <&gpi_dma1 0 4 3 64 0>,
+					<&gpi_dma1 1 4 3 64 0>;
+	dma-names = "tx", "rx";
 
 	touchscreen: synaptics-rmi4-i2c@20 {
 		compatible = "syna,rmi4-i2c";
@@ -548,7 +551,7 @@
 		#size-cells = <0>;
 		interrupts-extended = <&tlmm 125 0x2008>; // IRQF_ONESHOT|IRQF_TRIGGER_LOW
 		pinctrl-names = "default";
-		pinctrl-0 = <&ts_int_pin>;
+		pinctrl-0 = <&ts_int_pin &ts_1p8_pin>;
 		vdd-supply = <&vreg_l28a_3p0>;
 		vio-supply = <&vreg_l6a_1p8>;
 		syna,reset-delay-ms = <200>;
@@ -629,6 +632,19 @@
 		};
 	};
 
+	i2c_touch_default: i2c-touch-default {
+		mux {
+			pins = "gpio49", "gpio50";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio49", "gpio50";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
 	ts_int_pin: ts-int {
 		mux {
 			pins = "gpio99", "gpio125";
@@ -639,7 +655,19 @@
 			pins = "gpio99", "gpio125";
 			drive-strength = <16>;
 			bias-pull-up;
-			input-enable;
+		};
+	};
+
+	ts_1p8_pin: ts-1p8 {
+		mux {
+			pins = "gpio88";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio88";
+			drive-strength = <16>;
+			bias-pull-up;
 		};
 	};
 };
