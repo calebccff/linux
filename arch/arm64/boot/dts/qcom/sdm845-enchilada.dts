@@ -169,16 +169,21 @@
 		vol-down {
 			label = "Volume down";
 			linux,code = <KEY_VOLUMEDOWN>;
-			gpios = <&tlmm 5 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8998_gpio 5 GPIO_ACTIVE_LOW>;
 			debounce-interval = <15>;
 		};
 
 		vol-up {
 			label = "Volume up";
 			linux,code = <KEY_VOLUMEUP>;
-			gpios = <&tlmm 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pm8998_gpio 6 GPIO_ACTIVE_LOW>;
 			debounce-interval = <15>;
 		};
+	};
+
+	extcon_usb1: extcon-usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pm8998_gpio 8 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -549,13 +554,24 @@
 
 &usb_1 {
 	status = "okay";
+
+	/* disable USB3 clock requirement as we are in USB 2 mode */
+	qcom,select-utmi-as-pipe-clk;
 };
 
 &usb_1_dwc3 {
 	
 	/* Until we have Type C hooked up we'll force this as peripheral. */
 	
-	dr_mode = "host";
+	dr_mode = "peripheral";
+
+	/* fastest mode for USB 2 */
+	maximum-speed = "high-speed";
+
+	/* Remove USB3 phy */
+	phys = <&usb_1_hsphy>;
+	phy-names = "usb2-phy";
+	extcon = <&extcon_usb1>;
 };
 
 
@@ -572,12 +588,12 @@
 	qcom,preemphasis-width = <QUSB2_V2_PREEMPHASIS_WIDTH_HALF_BIT>;
 };
 
-&usb_1_qmpphy {
-	status = "okay";
+// &usb_1_qmpphy {
+// 	status = "okay";
 
-	vdda-phy-supply = <&vdda_usb1_ss_1p2>;
-	vdda-pll-supply = <&vdda_usb1_ss_core>;
-};
+// 	vdda-phy-supply = <&vdda_usb1_ss_1p2>;
+// 	vdda-pll-supply = <&vdda_usb1_ss_core>;
+// };
 
 &usb_2 {
 	status = "okay";
