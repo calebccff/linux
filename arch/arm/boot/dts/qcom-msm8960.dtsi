@@ -141,7 +141,7 @@
 			reg		= <0x2011000 0x1000>;
 		};
 
-		rpm@108000 {
+		rpm: rpm@108000 {
 			compatible	= "qcom,rpm-msm8960";
 			reg		= <0x108000 0x1000>;
 			qcom,ipc	= <&l2cc 0x8 2>;
@@ -199,6 +199,29 @@
 			};
 		};
 
+		gsbi12: gsbi@12480000 {
+			compatible = "qcom,gsbi-v1.0.0";
+			cell-index = <5>;
+			reg = <0x12480000 0x100>;
+			clocks = <&gcc GSBI12_H_CLK>;
+			clock-names = "iface";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			syscon-tcsr = <&tcsr>;
+
+			gsbi12_serial: serial@12480000 {
+				compatible = "qcom,msm-uartdm-v1.3", "qcom,msm-uartdm";
+				reg = <0x124c0000 0x1000>,
+				      <0x12480000 0x1000>;
+				interrupts = <0 196 0x0>;
+				clocks = <&gcc GSBI12_UART_CLK>, <&gcc GSBI12_H_CLK>;
+				clock-names = "core", "iface";
+				status = "disabled";
+			};
+		};
+
 		qcom,ssbi@500000 {
 			compatible = "qcom,ssbi";
 			reg = <0x500000 0x1000>;
@@ -220,6 +243,19 @@
 					interrupts = <50 1>, <51 1>;
 					debounce = <15625>;
 					pull-up;
+				};
+
+				pm8921_gpio: gpio@150 {
+
+					compatible = "qcom,pm8921-gpio",
+						     "qcom,ssbi-gpio";
+					reg = <0x150>;
+					interrupt-controller;
+					#interrupt-cells = <2>;
+					gpio-controller;
+					gpio-ranges = <&pm8921_gpio 0 0 44>;
+					#gpio-cells = <2>;
+
 				};
 
 				keypad@148 {
