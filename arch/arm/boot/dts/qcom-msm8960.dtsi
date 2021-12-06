@@ -56,21 +56,21 @@
 	};
 
 	clocks {
-		cxo_board {
+		cxo_board: cxo_board {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <19200000>;
 			clock-output-names = "cxo_board";
 		};
 
-		pxo_board {
+		pxo_board: pxo_board {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <27000000>;
 			clock-output-names = "pxo_board";
 		};
 
-		sleep_clk {
+		sleep_clk: sleep_clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <32768>;
@@ -93,16 +93,33 @@
 		};
 
 		timer@200a000 {
-			compatible = "qcom,kpss-timer",
-				     "qcom,kpss-wdt-msm8960", "qcom,msm-timer";
+			compatible = "qcom,kpss-timer", "qcom,kpss-wdt-msm8960";
 			interrupts = <1 1 0x301>,
 				     <1 2 0x301>,
 				     <1 3 0x301>;
 			reg = <0x0200a000 0x100>;
-			clock-frequency = <27000000>,
-					  <32768>;
+			clocks = <&pxo_board>, <&sleep_clk>;
+			clock-frequency = <27000000>;
+			//		  <32768>;
+			// clocks = <&wdt_osc 0>, <&sleep_clk 0>;
+			clock-names = "pxo_board", "sleep_clk";
 			cpu-offset = <0x80000>;
 		};
+
+		wdt@2040000 {
+			compatible = "qcom,kpss-wdt", "qcom,kpss-wdt-msm8960";
+			reg = <0x02040000 0x100>;
+			clocks = <&pxo_board>;
+			clock-names = "pxo_board";
+			cpu-offset = <0x80000>;
+		};
+
+		// sleep_clk: wdt-sleep-clk {
+		// 	compatible = "fixed-clock";
+		// 	#clock-cells = <0>;
+		// 	clock-frequency = <32768>;
+		// 	clock-output-names = "wdt_sleep";
+		// };
 
 		msmgpio: pinctrl@800000 {
 			compatible = "qcom,msm8960-pinctrl";
