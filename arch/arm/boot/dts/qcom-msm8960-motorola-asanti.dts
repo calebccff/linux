@@ -13,55 +13,37 @@
 	compatible = "mmi,asanti", "qcom,msm8960";
 
 	aliases {
-		serial0 = &gsbi12_serial;
+		serial0 = &gsbi5_serial;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
 
-	/*
-	 * We seem to have only 1021 MB accessible, 1021 - 1022 is locked,
-	 * then 1023 - 1024 seems to contain mbm.
-	 */
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x8c00000>;	/* 1021 MB */
-	};
-
-	soc {
-		amba {
-			/* eMMC */
-			sdcc1: sdcc@12400000 {
-				status = "okay";
-			};
-
-			/* External micro SD card */
-			sdcc3: sdcc@12180000 {
-				status = "okay";
-			};
-		};
+		reg = <0x0 0x0>;
 	};
 
 	leds {
 		compatible = "gpio-leds";
-		led0 {
-			gpios = <&pm8921_gpio 23 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
-			function = LED_FUNCTION_INDICATOR;
-		};
+		// led0 {
+		// 	gpios = <&pm8921_gpio 23 GPIO_ACTIVE_HIGH>;
+		// 	linux,default-trigger = "heartbeat";
+		// 	function = LED_FUNCTION_INDICATOR;
+		// };
 
-		led1 {
-			gpios = <&pm8921_gpio 25 GPIO_ACTIVE_HIGH>;
-			default-state = "disk-activity";
-			function = LED_FUNCTION_INDICATOR;
-		};
+		// led1 {
+		// 	gpios = <&pm8921_gpio 25 GPIO_ACTIVE_HIGH>;
+		// 	default-state = "disk-activity";
+		// 	function = LED_FUNCTION_INDICATOR;
+		// };
 
-		led2 {
-			gpios = <&msmgpio 2 GPIO_ACTIVE_LOW>;
-			default-state = "disk-activity";
-			function = LED_FUNCTION_INDICATOR;
-		};
+		// led2 {
+		// 	gpios = <&msmgpio 2 GPIO_ACTIVE_LOW>;
+		// 	default-state = "disk-activity";
+		// 	function = LED_FUNCTION_INDICATOR;
+		// };
 	};
 
 	regulators {
@@ -83,11 +65,43 @@
 	qcom,mode = <GSBI_PROT_I2C_UART>;
 };
 
-&gsbi12_serial {
+&gsbi5_serial {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart_mux_default>;
 };
+
+// &gsbi10 {
+// 	status = "okay";
+// 	qcom,mode = <GSBI_PROT_I2C>; // Might be ok with GSBI_PROT_I2C_UART ???
+// };
+
+// &gsbi10_i2c {
+// 	status = "okay";
+
+// 	led-controller@38 {
+// 		compatible = "ti,lm3532";
+// 		#address-cells = <1>;
+// 		#size-cells = <0>;
+// 		reg = <0x38>;
+
+// 		enable-gpios = <&msmgpio 12 GPIO_ACTIVE_HIGH>;
+// 		ramp-up-us = <1024>;
+// 		ramp-down-us = <65536>;
+
+// 		ti,als-vmin = <0>;
+// 		ti,als-vmax = <2000>;
+// 		ti,als1-imp-sel = <4110>;
+// 		ti,als2-imp-sel = <2180>;
+// 		ti,als-avrg-time-us = <17920>;
+// 		ti,als-input-mode = <0x00>;
+
+// 		led@0 {
+// 			reg = <0>;
+// 			led-sources = <2>;
+// 			ti,led-mode = <0>;
+// 			label = ":kbd_backlight";
+// 		};
+// 	};
+// };
 
 &msmgpio {
 // 	spi1_default: spi1_default {
@@ -121,32 +135,16 @@
 // 			bias-disable;
 // 		};
 // 	};
-
-	uart_mux_default: gsbi4_serial_default {
-		mux_ctrl_0 {
-			pins = "gpio107";
-			drive-strength = <12>;
-			output-low;
-		};
-
-		mux_ctrl_1 {
-			pins = "gpio96";
-			drive-strength = <12>;
-			output-high;
-		};
-	};
 };
 
-&pmicintc {
-	keypad@148 {
-		linux,keymap = <
-			MATRIX_KEY(0, 0, KEY_VOLUMEUP)
-			MATRIX_KEY(0, 1, KEY_VOLUMEDOWN)
-			MATRIX_KEY(0, 2, KEY_CAMERA_FOCUS)
-			MATRIX_KEY(0, 3, KEY_CAMERA)
-			>;
-		keypad,num-rows = <1>;
-		keypad,num-columns = <5>;
+&usb1 {
+	status = "okay";
+	dr_mode = "peripheral";
+	ulpi {
+		phy {
+			v3p3-supply = <&pm8921_l3>;
+			v1p8-supply = <&pm8921_l4>;
+		};
 	};
 };
 
@@ -384,4 +382,14 @@
 			qcom,switch-mode-frequency = <1600000>;
 		};
 	};
+};
+
+/* eMMC */
+&sdcc1 {
+	status = "okay";
+};
+
+/* External micro SD card */
+&sdcc3 {
+	status = "okay";
 };
