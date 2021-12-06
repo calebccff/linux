@@ -340,7 +340,7 @@
 	};
 };
 
-&pmicintc {
+&pmic8921 {
 	keypad@148 {
 		linux,keymap = <
 			MATRIX_KEY(0, 0, KEY_VOLUMEUP)
