@@ -107,6 +107,7 @@ struct smbb_charger {
 	bool dc_disabled;
 	// bool jeita_ext_temp;
 	unsigned long status;
+	int revision;
 	struct mutex statlock;
 
 	unsigned int attr[_ATTR_CNT];
@@ -546,7 +547,6 @@ static int smbb_battery_get_property(struct power_supply *psy,
 	status = chg->status;
 	mutex_unlock(&chg->statlock);
 
-#if 0
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		if (status & STATUS_CHG_GONE)
@@ -585,7 +585,7 @@ static int smbb_battery_get_property(struct power_supply *psy,
 		val->intval = chg->attr[ATTR_BAT_IMAX];
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = chg->attr[ATTR_BAT_VMAX];
+		val->intval = chg->attr[ATTR_BAT_IMAX];
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		/* this charger is a single-cell lithium-ion battery charger
@@ -597,12 +597,13 @@ static int smbb_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		val->intval = 3000000; /* single-cell li-ion low end */
 		break;
+	// case POWER_SUPPLY_PROP_CAPACITY:
+	// 	val->intval = chg->attr[ATTR_BAT_CAPACITY];
+	// 	break;
 	default:
 		rc = -EINVAL;
 		break;
 	}
-#endif
-	val->intval = 0;
 	return 0;
 
 	return rc;
@@ -657,6 +658,7 @@ static enum power_supply_property smbb_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
+	//POWER_SUPPLY_PROP_CAPACITY,
 };
 
 static const struct reg_off_mask_default {
@@ -817,21 +819,6 @@ static int smbb_charger_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-#if 0
-	rc = regmap_read(chg->regmap, chg->addr + SMBB_MISC_REV2, &chg->revision);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to read revision\n");
-		return rc;
-	}
-
-	chg->revision += 1;
-	if (chg->revision != 2 && chg->revision != 3) {
-		dev_err(&pdev->dev, "v1 hardware not supported\n");
-		return -ENODEV;
-	}
-	dev_info(&pdev->dev, "Initializing SMBB rev %u", chg->revision);
-#endif
-
 	chg->dc_disabled = of_property_read_bool(pdev->dev.of_node, "qcom,disable-dc");
 
 	for (i = 0; i < _ATTR_CNT; ++i) {
@@ -966,6 +953,8 @@ static int smbb_charger_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, chg);
+
+	dev_info(&pdev->dev, "Probed SMBB");
 
 	return 0;
 }

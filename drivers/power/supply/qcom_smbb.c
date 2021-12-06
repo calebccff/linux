@@ -96,7 +96,7 @@ enum smbb_attr {
 	ATTR_USBIN_IMAX,
 	ATTR_DCIN_IMAX,
 	ATTR_BAT_VSAFE,
-	ATTR_BAT_VMAX,
+	ATTR_BAT_MAXV,
 	ATTR_BAT_VMIN,
 	ATTR_CHG_VDET,
 	ATTR_VIN_MIN,
@@ -215,7 +215,7 @@ static const struct smbb_charger_attr {
 		.hw_fn = smbb_vmax_fn,
 		.fail_ok = 1,
 	},
-	[ATTR_BAT_VMAX] = {
+	[ATTR_BAT_MAXV] = {
 		.name = "qcom,fast-charge-high-threshold-voltage",
 		.reg = SMBB_CHG_VMAX,
 		.safe_reg = SMBB_CHG_VSAFE,
@@ -637,7 +637,7 @@ static int smbb_battery_get_property(struct power_supply *psy,
 		val->intval = chg->attr[ATTR_BAT_IMAX];
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		val->intval = chg->attr[ATTR_BAT_VMAX];
+		val->intval = chg->attr[ATTR_BAT_MAXV];
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		/* this charger is a single-cell lithium-ion battery charger
@@ -669,7 +669,7 @@ static int smbb_battery_set_property(struct power_supply *psy,
 		rc = smbb_charger_attr_write(chg, ATTR_BAT_IMAX, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		rc = smbb_charger_attr_write(chg, ATTR_BAT_VMAX, val->intval);
+		rc = smbb_charger_attr_write(chg, ATTR_BAT_MAXV, val->intval);
 		break;
 	default:
 		rc = -EINVAL;
