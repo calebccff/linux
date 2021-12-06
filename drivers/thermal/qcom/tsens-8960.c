@@ -182,10 +182,16 @@ static int calibrate_8960(struct tsens_priv *priv)
 	u32 p1[11];
 
 	data = qfprom_read(priv->dev, "calib");
-	if (IS_ERR(data))
+	if (IS_ERR(data)) {
+		dev_info(priv->dev, "couldn't read calib: %d", PTR_ERR(data));
 		data = qfprom_read(priv->dev, "calib_backup");
-	if (IS_ERR(data))
-		return PTR_ERR(data);
+	}
+	if (IS_ERR(data)) {
+		dev_info(priv->dev, "couldn't read backup, returning: %d", PTR_ERR(data));
+		return 0; //PTR_ERR(data);
+	}
+	
+	dev_info(priv->dev, "Read calibation data");
 
 	for (i = 0; i < priv->num_sensors; i++) {
 		p1[i] = data[i];
@@ -193,6 +199,8 @@ static int calibrate_8960(struct tsens_priv *priv)
 	}
 
 	compute_intercept_slope(priv, p1, NULL, ONE_PT_CALIB);
+
+	dev_info(priv->dev, "Calibration done");
 
 	kfree(data);
 

@@ -778,15 +778,19 @@ int __init init_common(struct tsens_priv *priv)
 		tm_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(tm_base)) {
 			ret = PTR_ERR(tm_base);
+			dev_err(dev, "failed to map MEM: %d\n", ret);
 			goto err_put_device;
 		}
 
 		priv->tm_map = devm_regmap_init_mmio(dev, tm_base, &tsens_config);
 	} else { /* VER_0 share the same gcc regs using a syscon */
-		struct device *parent = priv->dev->parent;
-
-		if (parent)
-			priv->tm_map = syscon_node_to_regmap(parent->of_node);
+		// struct device_node *pnode = of_parse_phandle(priv->dev->of_node,
+		// 						"qcom,gcc", 0);
+		// struct platform_device *parent = of_find_device_by_node(pnode);
+		struct device_node *pnode = of_find_compatible_node(NULL, NULL, "qcom,gcc-msm8960");
+		struct platform_device *parent = of_find_device_by_node(pnode);
+		dev_info(&parent->dev, "<---- parent");
+		priv->tm_map = dev_get_regmap(&parent->dev, NULL);
 	}
 
 	if (IS_ERR_OR_NULL(priv->tm_map)) {
@@ -794,6 +798,7 @@ int __init init_common(struct tsens_priv *priv)
 			ret = -ENODEV;
 		else
 			ret = PTR_ERR(priv->tm_map);
+		dev_err(dev, "failed to init regmap2: %d\n", ret);
 		goto err_put_device;
 	}
 
@@ -807,6 +812,8 @@ int __init init_common(struct tsens_priv *priv)
 							      priv->fields[i]);
 			if (IS_ERR(priv->rf[i])) {
 				ret = PTR_ERR(priv->rf[i]);
+				dev_err(dev, "failed to alloc regmap field (v0.1): %d\n",
+					ret);
 				goto err_put_device;
 			}
 		}
@@ -819,6 +826,7 @@ int __init init_common(struct tsens_priv *priv)
 						     priv->fields[TSENS_EN]);
 	if (IS_ERR(priv->rf[TSENS_EN])) {
 		ret = PTR_ERR(priv->rf[TSENS_EN]);
+		dev_err(dev, "failed to alloc regmap field: %d\n", ret);
 		goto err_put_device;
 	}
 	/* in VER_0 TSENS need to be explicitly enabled */
@@ -838,12 +846,14 @@ int __init init_common(struct tsens_priv *priv)
 						      priv->fields[SENSOR_EN]);
 	if (IS_ERR(priv->rf[SENSOR_EN])) {
 		ret = PTR_ERR(priv->rf[SENSOR_EN]);
+		dev_err(dev, "[SENSOR_EN] failed to alloc regmap field: %d\n", ret);
 		goto err_put_device;
 	}
 	priv->rf[INT_EN] = devm_regmap_field_alloc(dev, priv->tm_map,
 						   priv->fields[INT_EN]);
 	if (IS_ERR(priv->rf[INT_EN])) {
 		ret = PTR_ERR(priv->rf[INT_EN]);
+		dev_err(dev, "[INT_EN] failed to alloc regmap field: %d\n", ret);
 		goto err_put_device;
 	}
 
@@ -851,12 +861,14 @@ int __init init_common(struct tsens_priv *priv)
 		devm_regmap_field_alloc(dev, priv->srot_map, priv->fields[TSENS_SW_RST]);
 	if (IS_ERR(priv->rf[TSENS_SW_RST])) {
 		ret = PTR_ERR(priv->rf[TSENS_SW_RST]);
+		dev_err(dev, "[TSENS_SW_RST] failed to alloc regmap field: %d\n", ret);
 		goto err_put_device;
 	}
 
 	priv->rf[TRDY] = devm_regmap_field_alloc(dev, priv->tm_map, priv->fields[TRDY]);
 	if (IS_ERR(priv->rf[TRDY])) {
 		ret = PTR_ERR(priv->rf[TRDY]);
+		dev_err(dev, "[TRDY] failed to alloc regmap field: %d\n", ret);
 		goto err_put_device;
 	}
 
@@ -870,6 +882,7 @@ int __init init_common(struct tsens_priv *priv)
 								priv->fields[idx]);
 			if (IS_ERR(priv->rf[idx])) {
 				ret = PTR_ERR(priv->rf[idx]);
+				dev_err(dev, "failed to alloc regfield_ids regmap field: %d\n", ret);
 				goto err_put_device;
 			}
 		}
@@ -887,6 +900,7 @@ int __init init_common(struct tsens_priv *priv)
 								priv->fields[idx]);
 				if (IS_ERR(priv->rf[idx])) {
 					ret = PTR_ERR(priv->rf[idx]);
+					dev_err(dev, "failed to alloc regfield_ids regmap field (v.0): %d\n", ret);
 					goto err_put_device;
 				}
 			}
@@ -901,6 +915,7 @@ int __init init_common(struct tsens_priv *priv)
 							      priv->fields[i]);
 			if (IS_ERR(priv->rf[i])) {
 				ret = PTR_ERR(priv->rf[i]);
+				dev_err(dev, "failed to alloc regmap field (v>1.2): %d\n", ret);
 				goto err_put_device;
 			}
 		}
@@ -1076,9 +1091,9 @@ static int tsens_register(struct tsens_priv *priv)
 				   tsens_mC_to_hw(priv->sensor, 0));
 	}
 
-	ret = tsens_register_irq(priv, "uplow", tsens_irq_thread);
-	if (ret < 0)
-		return ret;
+	// ret = tsens_register_irq(priv, "uplow", tsens_irq_thread);
+	// if (ret < 0)
+	// 	return ret;
 
 	if (priv->feat->crit_int)
 		ret = tsens_register_irq(priv, "critical",
