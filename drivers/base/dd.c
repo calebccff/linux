@@ -16,6 +16,8 @@
  * Copyright (c) 2007-2009 Novell Inc.
  */
 
+#define DEBUG 1
+
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/delay.h>
